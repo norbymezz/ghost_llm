@@ -1,12 +1,31 @@
-cmake_minimum_required(VERSION 3.20)
-project(overlay_prototype C)
+cmake_minimum_required(VERSION 3.16)
+project(ghost_overlay LANGUAGES C)
 
-if(NOT WIN32)
-  message(FATAL_ERROR "overlay-prototype requires Windows/Win32")
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+add_library(overlay SHARED
+    src/window_win32.c
+    src/hotkeys.c
+    src/capture.c
+)
+
+target_include_directories(overlay
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_compile_definitions(overlay
+    PRIVATE
+        OVERLAY_EXPORTS
+        UNICODE
+        _UNICODE
+)
+
+if(WIN32)
+    target_link_libraries(overlay
+        PRIVATE
+            user32
+            gdi32
+    )
 endif()
-
-add_library(overlay SHARED src/window_win32.c src/hotkeys.c src/capture.c)
-target_compile_definitions(overlay PRIVATE OVERLAY_BUILD UNICODE _UNICODE WIN32_LEAN_AND_MEAN)
-target_include_directories(overlay PUBLIC include)
-target_link_libraries(overlay PRIVATE user32 gdi32 dwmapi)
-set_target_properties(overlay PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES)
