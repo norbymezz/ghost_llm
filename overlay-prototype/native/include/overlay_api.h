@@ -70,6 +70,7 @@ OV_API int ov_set_text(const char* utf8_text, int state_code);
 OV_API int ov_register_hotkey_callback(OvHotkeyCallback cb, void* user_data);
 OV_API int ov_register_hotkey(int hotkey_id, unsigned int modifiers, unsigned int virtual_key);
 OV_API int ov_unregister_hotkey(int hotkey_id);
+OV_API int ov_get_last_win32_error(void);
 
 /* Captura de region de pantalla en formato BGRA raw */
 OV_API int ov_capture_region(

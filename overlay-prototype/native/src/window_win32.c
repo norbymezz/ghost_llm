@@ -6,6 +6,7 @@
 
 #define OVERLAY_EXPORTS
 #include "overlay_api.h"
+#include "internal.h"
 
 #ifndef WDA_EXCLUDEFROMCAPTURE
 #define WDA_EXCLUDEFROMCAPTURE 0x00000011
@@ -157,6 +158,31 @@ static LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPA
             return 0;
         }
 
+        case WM_HOTKEY: {
+            int hk_id = (int)wparam;
+            ov_internal_dispatch_hotkey(hk_id);
+            return 0;
+        }
+
+        case WM_OV_REGISTER_HOTKEY: {
+            UINT modifiers = (UINT)LOWORD(lparam);
+            UINT virtual_key = (UINT)HIWORD(lparam);
+
+            if (RegisterHotKey(hwnd, (int)wparam, modifiers, virtual_key)) {
+                return 1;
+            }
+
+            return (LRESULT)GetLastError() + 1;
+        }
+
+        case WM_OV_UNREGISTER_HOTKEY: {
+            if (UnregisterHotKey(hwnd, (int)wparam)) {
+                return 1;
+            }
+
+            return (LRESULT)GetLastError() + 1;
+        }
+
         default:
             return DefWindowProcW(hwnd, msg, wparam, lparam);
     }
@@ -275,6 +301,8 @@ void ov_shutdown(void) {
         return;
     }
 
+    ov_internal_unregister_all_hotkeys();
+
     if (g_ov.hwnd && g_ov.thread_id != 0) {
         PostMessageW(g_ov.hwnd, WM_OV_SHUTDOWN, 0, 0);
     }
@@ -322,4 +350,15 @@ int ov_set_text(const char* utf8_text, int state_code) {
 
     PostMessageW(g_ov.hwnd, WM_OV_REDRAW_TEXT, 0, 0);
     return OV_OK;
+}
+HWND ov_internal_get_hwnd(void) {
+    return g_ov.hwnd;
+}
+
+DWORD ov_internal_get_thread_id(void) {
+    return g_ov.thread_id;
+}
+
+int ov_internal_is_initialized(void) {
+    return InterlockedCompareExchange(&g_ov.initialized, 0, 0) == 1 && g_ov.hwnd != NULL;
 }
