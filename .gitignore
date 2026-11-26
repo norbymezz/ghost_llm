@@ -1,0 +1,12 @@
+# Local editor configuration
+.vscode/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Native build artifacts
+overlay-prototype/native/build/
+
+# Diagnostic captures
+debug_captures/
