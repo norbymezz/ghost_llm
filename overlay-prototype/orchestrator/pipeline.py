@@ -12,6 +12,7 @@ from orchestrator.bridge import (
     OvHotkeyId,
     OvState,
 )
+from orchestrator.capture_types import CaptureFrame, FrameOcrEngine, OcrResult
 
 # Modificadores y teclas virtuales Win32
 MOD_ALT = 0x0001
@@ -46,6 +47,7 @@ class OverlayPipeline:
         overlay_cfg: OverlayConfig | None = None,
         pipeline_cfg: PipelineConfig | None = None,
         on_capture: CaptureHandler | None = None,
+        ocr_engine: FrameOcrEngine | None = None,
     ) -> None:
         self.overlay_cfg = overlay_cfg or OverlayConfig(
             x=80,
@@ -58,6 +60,7 @@ class OverlayPipeline:
         )
         self.cfg = pipeline_cfg or PipelineConfig()
         self.on_capture = on_capture
+        self.ocr_engine = ocr_engine
 
         self._events: queue.Queue[int] = queue.Queue()
         self._stop_event = threading.Event()
@@ -109,7 +112,24 @@ class OverlayPipeline:
                 h,
                 self._capture_buf,
             )
-            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            capture_ts = time.perf_counter()
+            elapsed_ms = (capture_ts - t0) * 1000.0
+
+            if self._stop_event.is_set():
+                return
+
+            frame: CaptureFrame | None = None
+
+            if self.ocr_engine is not None:
+                frame = CaptureFrame(
+                    x=self.cfg.capture_x,
+                    y=self.cfg.capture_y,
+                    width=w,
+                    height=h,
+                    buffer=bytes(memoryview(self._capture_buf)[:written]),
+                    written=written,
+                    timestamp=capture_ts,
+                )
 
             if self._stop_event.is_set():
                 return
@@ -124,11 +144,36 @@ class OverlayPipeline:
                     written,
                 )
 
-            if not self._stop_event.is_set():
-                bridge.set_text(
-                    f"Captura lista: {written} bytes en {elapsed_ms:.1f} ms.",
-                    OvState.IDLE,
-                )
+            if self._stop_event.is_set():
+                return
+
+            if self.ocr_engine is not None:
+                assert frame is not None
+                ocr_result: OcrResult = self.ocr_engine.recognize(frame)
+
+                if self._stop_event.is_set():
+                    return
+
+                if ocr_result.error:
+                    bridge.set_text(
+                        f"OCR error: {ocr_result.error}",
+                        OvState.IDLE,
+                    )
+                elif not ocr_result.text.strip():
+                    bridge.set_text(
+                        "OCR: sin texto detectado.",
+                        OvState.IDLE,
+                    )
+                else:
+                    bridge.set_text(ocr_result.text, OvState.IDLE)
+
+                return
+
+            bridge.set_text(
+                f"Captura lista: {written} bytes en {elapsed_ms:.1f} ms.",
+                OvState.IDLE,
+            )
+
         except Exception as exc:
             if not self._stop_event.is_set():
                 try:

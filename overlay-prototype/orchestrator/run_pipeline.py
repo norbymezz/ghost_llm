@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
 from orchestrator.bridge import OverlayConfig
 from orchestrator.pipeline import OverlayPipeline, PipelineConfig
 from orchestrator.debug_capture import make_png_capture_handler
+from orchestrator.tesseract_ocr import TesseractOcrEngine
 
 def main() -> None:
     overlay_cfg = OverlayConfig(
@@ -27,11 +28,16 @@ def main() -> None:
         capture_width=640,
         capture_height=360,
     )
-
+    ocr_engine = TesseractOcrEngine(
+        lang="eng",
+        psm=6,
+        timeout_s=5.0,
+    )
     pipeline = OverlayPipeline(
         overlay_cfg=overlay_cfg,
         pipeline_cfg=pipeline_cfg,
         on_capture=make_png_capture_handler(output_dir="debug_captures", enabled=True),
+        ocr_engine=ocr_engine,
     )
     pipeline.run()
 
