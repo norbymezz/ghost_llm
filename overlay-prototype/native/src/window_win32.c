@@ -15,6 +15,9 @@
 #define WM_OV_SET_VISIBLE (WM_APP + 1)
 #define WM_OV_REDRAW_TEXT (WM_APP + 2)
 #define WM_OV_SHUTDOWN    (WM_APP + 3)
+#define WM_OV_SET_POSITION (WM_APP + 4)
+#define WM_OV_SET_SIZE     (WM_APP + 5)
+#define WM_OV_SET_OPACITY  (WM_APP + 6)
 
 #define MAX_TEXT_BYTES (64 * 1024)
 
@@ -135,6 +138,46 @@ static LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPA
 
             EndPaint(hwnd, &ps);
             return 0;
+        }
+
+        case WM_OV_SET_POSITION: {
+            const int* position = (const int*)lparam;
+            if (!position) return 0;
+
+            return SetWindowPos(
+                hwnd, NULL,
+                position[0], position[1],
+                0, 0,
+                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
+            );
+        }
+
+        case WM_OV_SET_SIZE: {
+            const int* size = (const int*)lparam;
+            if (!size || size[0] <= 0 || size[1] <= 0) return 0;
+
+            if (!SetWindowPos(
+                hwnd, NULL,
+                0, 0,
+                size[0], size[1],
+                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE
+            )) {
+                return 0;
+            }
+
+            InvalidateRect(hwnd, NULL, TRUE);
+            UpdateWindow(hwnd);
+
+            return 1;
+        }
+
+        case WM_OV_SET_OPACITY: {
+            LONG_PTR ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style | WS_EX_LAYERED);
+
+            return SetLayeredWindowAttributes(
+                hwnd, 0, (BYTE)wparam, LWA_ALPHA
+            );
         }
 
         case WM_OV_SET_VISIBLE: {
@@ -327,6 +370,67 @@ int ov_set_visible(int visible) {
         return OV_ERR_NOT_INITIALIZED;
     }
     PostMessageW(g_ov.hwnd, WM_OV_SET_VISIBLE, (WPARAM)(visible ? 1 : 0), 0);
+    return OV_OK;
+}
+
+int ov_set_position(int x, int y) {
+    if (!ov_internal_is_initialized()) {
+        return OV_ERR_NOT_INITIALIZED;
+    }
+
+    int position[2] = { x, y };
+
+    if (!SendMessageW(
+        g_ov.hwnd,
+        WM_OV_SET_POSITION,
+        0,
+        (LPARAM)position
+    )) {
+        return OV_ERR_INIT_FAILED;
+    }
+
+    return OV_OK;
+}
+
+int ov_set_size(int width, int height) {
+    if (width <= 0 || height <= 0) {
+        return OV_ERR_INVALID_ARG;
+    }
+    if (!ov_internal_is_initialized()) {
+        return OV_ERR_NOT_INITIALIZED;
+    }
+
+    int size[2] = { width, height };
+
+    if (!SendMessageW(
+        g_ov.hwnd,
+        WM_OV_SET_SIZE,
+        0,
+        (LPARAM)size
+    )) {
+        return OV_ERR_INIT_FAILED;
+    }
+
+    return OV_OK;
+}
+
+int ov_set_opacity(int alpha) {
+    if (alpha < 0 || alpha > 255) {
+        return OV_ERR_INVALID_ARG;
+    }
+    if (!ov_internal_is_initialized()) {
+        return OV_ERR_NOT_INITIALIZED;
+    }
+
+    if (!SendMessageW(
+        g_ov.hwnd,
+        WM_OV_SET_OPACITY,
+        (WPARAM)alpha,
+        0
+    )) {
+        return OV_ERR_INIT_FAILED;
+    }
+
     return OV_OK;
 }
 

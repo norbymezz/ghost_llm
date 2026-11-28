@@ -41,7 +41,15 @@ typedef enum {
     OV_HOTKEY_TOGGLE_VISIBILITY = 1,
     OV_HOTKEY_CAPTURE_REGION = 2,
     OV_HOTKEY_TOGGLE_AUDIO = 3,
-    OV_HOTKEY_CLEAR = 4
+    OV_HOTKEY_CLEAR = 4,
+    OV_HOTKEY_MOVE_UP = 5,
+    OV_HOTKEY_MOVE_DOWN = 6,
+    OV_HOTKEY_MOVE_LEFT = 7,
+    OV_HOTKEY_MOVE_RIGHT = 8,
+    OV_HOTKEY_RESIZE_INCREASE = 9,
+    OV_HOTKEY_RESIZE_DECREASE = 10,
+    OV_HOTKEY_OPACITY_INCREASE = 11,
+    OV_HOTKEY_OPACITY_DECREASE = 12
 } OvHotkeyId;
 
 /* Configuracion inicial de la ventana y geometria */
@@ -64,6 +72,9 @@ OV_API void ov_shutdown(void);
 
 /* Control de ventana y renderizado */
 OV_API int ov_set_visible(int visible);
+OV_API int ov_set_position(int x, int y);
+OV_API int ov_set_size(int width, int height);
+OV_API int ov_set_opacity(int alpha);
 OV_API int ov_set_text(const char* utf8_text, int state_code);
 
 /* Registro de atajos globales */

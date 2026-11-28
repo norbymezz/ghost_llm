@@ -22,6 +22,26 @@ MOD_NOREPEAT = 0x4000
 VK_F6 = 0x75
 VK_F9 = 0x78
 VK_F10 = 0x79
+VK_UP = 0x26
+VK_DOWN = 0x28
+VK_LEFT = 0x25
+VK_RIGHT = 0x27
+
+VK_ADD = 0x6B
+VK_SUBTRACT = 0x6D
+
+VK_PRIOR = 0x21  # Page Up
+VK_NEXT = 0x22   # Page Down
+
+OVERLAY_MOVE_STEP = 10
+OVERLAY_RESIZE_WIDTH_STEP = 40
+OVERLAY_RESIZE_HEIGHT_STEP = 25
+
+OVERLAY_MIN_WIDTH = 160
+OVERLAY_MIN_HEIGHT = 80
+
+OVERLAY_OPACITY_STEP = 26  # aproximadamente 10 %
+OVERLAY_MIN_ALPHA = 26  # aproximadamente 10 % de opacidad
 
 CaptureHandler = Callable[[int, int, int, int, bytearray, int], None]
 
@@ -38,6 +58,20 @@ class PipelineConfig:
     capture_vk: int = VK_F9
     clear_modifiers: int = MOD_CONTROL | MOD_ALT | MOD_NOREPEAT
     clear_vk: int = VK_F10
+    move_modifiers: int = MOD_CONTROL | MOD_ALT | MOD_NOREPEAT
+    move_up_vk: int = VK_UP
+    move_down_vk: int = VK_DOWN
+    move_left_vk: int = VK_LEFT
+    move_right_vk: int = VK_RIGHT
+
+    resize_modifiers: int = MOD_CONTROL | MOD_ALT | MOD_NOREPEAT
+    resize_increase_vk: int = VK_ADD
+    resize_decrease_vk: int = VK_SUBTRACT
+
+    opacity_modifiers: int = MOD_CONTROL | MOD_ALT | MOD_NOREPEAT
+    opacity_increase_vk: int = VK_PRIOR
+    opacity_decrease_vk: int = VK_NEXT
+
     poll_timeout_s: float = 0.05
 
 
@@ -65,6 +99,11 @@ class OverlayPipeline:
         self._events: queue.Queue[int] = queue.Queue()
         self._stop_event = threading.Event()
         self._visible = True
+        self._overlay_x = self.overlay_cfg.x
+        self._overlay_y = self.overlay_cfg.y
+        self._overlay_width = self.overlay_cfg.width
+        self._overlay_height = self.overlay_cfg.height
+        self._overlay_alpha = 255
         self._busy = False
         self._busy_lock = threading.Lock()
         self._worker: threading.Thread | None = None
@@ -214,6 +253,56 @@ class OverlayPipeline:
         elif hotkey_id == OvHotkeyId.CLEAR:
             bridge.set_text("", OvState.IDLE)
 
+        elif hotkey_id == OvHotkeyId.MOVE_UP:
+            y = self._overlay_y - OVERLAY_MOVE_STEP
+            bridge.set_position(self._overlay_x, y)
+            self._overlay_y = y
+
+        elif hotkey_id == OvHotkeyId.MOVE_DOWN:
+            y = self._overlay_y + OVERLAY_MOVE_STEP
+            bridge.set_position(self._overlay_x, y)
+            self._overlay_y = y
+
+        elif hotkey_id == OvHotkeyId.MOVE_LEFT:
+            x = self._overlay_x - OVERLAY_MOVE_STEP
+            bridge.set_position(x, self._overlay_y)
+            self._overlay_x = x
+
+        elif hotkey_id == OvHotkeyId.MOVE_RIGHT:
+            x = self._overlay_x + OVERLAY_MOVE_STEP
+            bridge.set_position(x, self._overlay_y)
+            self._overlay_x = x
+        
+        elif hotkey_id == OvHotkeyId.RESIZE_INCREASE:
+            width = self._overlay_width + OVERLAY_RESIZE_WIDTH_STEP
+            height = self._overlay_height + OVERLAY_RESIZE_HEIGHT_STEP
+            bridge.set_size(width, height)
+            self._overlay_width = width
+            self._overlay_height = height
+
+        elif hotkey_id == OvHotkeyId.RESIZE_DECREASE:
+            width = max(
+                OVERLAY_MIN_WIDTH,
+                self._overlay_width - OVERLAY_RESIZE_WIDTH_STEP,
+            )
+            height = max(
+                OVERLAY_MIN_HEIGHT,
+                self._overlay_height - OVERLAY_RESIZE_HEIGHT_STEP,
+            )
+            bridge.set_size(width, height)
+            self._overlay_width = width
+            self._overlay_height = height
+
+        elif hotkey_id == OvHotkeyId.OPACITY_INCREASE:
+            alpha = min(255, self._overlay_alpha + OVERLAY_OPACITY_STEP)
+            bridge.set_opacity(alpha)
+            self._overlay_alpha = alpha
+
+        elif hotkey_id == OvHotkeyId.OPACITY_DECREASE:
+            alpha = max(OVERLAY_MIN_ALPHA, self._overlay_alpha - OVERLAY_OPACITY_STEP)
+            bridge.set_opacity(alpha)
+            self._overlay_alpha = alpha
+
     def run(self) -> None:
         self._stop_event.clear()
 
@@ -236,10 +325,51 @@ class OverlayPipeline:
                 self.cfg.clear_modifiers,
                 self.cfg.clear_vk,
             )
-
+            bridge.register_hotkey(
+                OvHotkeyId.MOVE_UP,
+                self.cfg.move_modifiers,
+                self.cfg.move_up_vk,
+            )
+            bridge.register_hotkey(
+                OvHotkeyId.MOVE_DOWN,
+                self.cfg.move_modifiers,
+                self.cfg.move_down_vk,
+            )
+            bridge.register_hotkey(
+                OvHotkeyId.MOVE_LEFT,
+                self.cfg.move_modifiers,
+                self.cfg.move_left_vk,
+            )
+            bridge.register_hotkey(
+                OvHotkeyId.MOVE_RIGHT,
+                self.cfg.move_modifiers,
+                self.cfg.move_right_vk,
+            )
+            bridge.register_hotkey(
+                OvHotkeyId.RESIZE_INCREASE,
+                self.cfg.resize_modifiers,
+                self.cfg.resize_increase_vk,
+            )
+            bridge.register_hotkey(
+                OvHotkeyId.RESIZE_DECREASE,
+                self.cfg.resize_modifiers,
+                self.cfg.resize_decrease_vk,
+            )
+            bridge.register_hotkey(
+                OvHotkeyId.OPACITY_INCREASE,
+                self.cfg.opacity_modifiers,
+                self.cfg.opacity_increase_vk,
+            )
+            bridge.register_hotkey(
+                OvHotkeyId.OPACITY_DECREASE,
+                self.cfg.opacity_modifiers,
+                self.cfg.opacity_decrease_vk,
+            )
             bridge.set_visible(self._visible)
             bridge.set_text(
-                "Pipeline listo. F6: ocultar/mostrar | F9: capturar | F10: limpiar",
+                "Ctrl+Alt+F6: mostrar/ocultar | F9: capturar | F10: limpiar\n"
+                "Flechas: mover | NumPad +/-: redimensionar | "
+                "PageUp/Down: opacidad",
                 OvState.IDLE,
             )
 

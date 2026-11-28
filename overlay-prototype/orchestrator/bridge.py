@@ -29,7 +29,14 @@ class OvHotkeyId(IntEnum):
     CAPTURE_REGION = 2
     TOGGLE_AUDIO = 3
     CLEAR = 4
-
+    MOVE_UP = 5
+    MOVE_DOWN = 6
+    MOVE_LEFT = 7
+    MOVE_RIGHT = 8
+    RESIZE_INCREASE = 9
+    RESIZE_DECREASE = 10
+    OPACITY_INCREASE = 11
+    OPACITY_DECREASE = 12
 
 class _OvConfigStruct(ctypes.Structure):
     _fields_ = [
@@ -111,6 +118,15 @@ class OverlayBridge:
         self._lib.ov_set_visible.argtypes = [ctypes.c_int]
         self._lib.ov_set_visible.restype = ctypes.c_int
 
+        self._lib.ov_set_position.argtypes = [ctypes.c_int, ctypes.c_int]
+        self._lib.ov_set_position.restype = ctypes.c_int
+
+        self._lib.ov_set_size.argtypes = [ctypes.c_int, ctypes.c_int]
+        self._lib.ov_set_size.restype = ctypes.c_int
+
+        self._lib.ov_set_opacity.argtypes = [ctypes.c_int]
+        self._lib.ov_set_opacity.restype = ctypes.c_int
+
         self._lib.ov_set_text.argtypes = [ctypes.c_char_p, ctypes.c_int]
         self._lib.ov_set_text.restype = ctypes.c_int
 
@@ -161,6 +177,18 @@ class OverlayBridge:
     def set_visible(self, visible: bool) -> None:
         status = self._lib.ov_set_visible(1 if visible else 0)
         self._check(status, "ov_set_visible")
+    
+    def set_position(self, x: int, y: int) -> None:
+        status = self._lib.ov_set_position(x, y)
+        self._check(status, "ov_set_position")
+
+    def set_size(self, width: int, height: int) -> None:
+        status = self._lib.ov_set_size(width, height)
+        self._check(status, "ov_set_size")
+
+    def set_opacity(self, alpha: int) -> None:
+        status = self._lib.ov_set_opacity(alpha)
+        self._check(status, "ov_set_opacity")
 
     def set_text(self, text: str, state: OvState | int = OvState.IDLE) -> None:
         encoded = text.encode("utf-8", errors="replace")
